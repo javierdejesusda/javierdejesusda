@@ -7,19 +7,10 @@
 
 ---
 
-<a href="https://github.com/javierdejesusda/github-stats">
-<img src="https://raw.githubusercontent.com/javierdejesusda/github-stats/master/generated/overview.svg#gh-dark-mode-only" />
-<img src="https://raw.githubusercontent.com/javierdejesusda/github-stats/master/generated/overview.svg#gh-light-mode-only" />
-</a>
-<a href="https://github.com/javierdejesusda/github-stats">
-<img src="https://raw.githubusercontent.com/javierdejesusda/github-stats/master/generated/languages.svg#gh-dark-mode-only" />
-<img src="https://raw.githubusercontent.com/javierdejesusda/github-stats/master/generated/languages.svg#gh-light-mode-only" />
-</a>
+![](https://raw.githubusercontent.com/javierdejesusda/javierdejesusda/main/generated/overview.svg)
+![](https://raw.githubusercontent.com/javierdejesusda/javierdejesusda/main/generated/languages.svg)
 
-<a href="https://git.io/streak-stats">
-<img src="https://streak-stats.demolab.com?user=javierdejesusda&theme=dark&hide_border=true#gh-dark-mode-only" />
-<img src="https://streak-stats.demolab.com?user=javierdejesusda&theme=default&hide_border=true#gh-light-mode-only" />
-</a>
+![GitHub Streak](https://streak-stats.demolab.com?user=javierdejesusda&theme=dark&hide_border=true)
 
 ---
 
