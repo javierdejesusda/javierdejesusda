@@ -1,10 +1,10 @@
 <div align="center">
 
 <a href="https://github.com/javierdejesusda/javierdejesusda">
-<img src="https://raw.githubusercontent.com/javierdejesusda/javierdejesusda/main/generated/overview.svg#gh-dark-mode-only" />
-<img src="https://raw.githubusercontent.com/javierdejesusda/javierdejesusda/main/generated/languages.svg#gh-dark-mode-only" />
-<img src="https://raw.githubusercontent.com/javierdejesusda/javierdejesusda/main/generated/overview.svg#gh-light-mode-only" />
-<img src="https://raw.githubusercontent.com/javierdejesusda/javierdejesusda/main/generated/languages.svg#gh-light-mode-only" />
+<img src="https://github.com/javierdejesusda/javierdejesusda/blob/main/generated/overview.svg#gh-dark-mode-only" />
+<img src="https://github.com/javierdejesusda/javierdejesusda/blob/main/generated/languages.svg#gh-dark-mode-only" />
+<img src="https://github.com/javierdejesusda/javierdejesusda/blob/main/generated/overview.svg#gh-light-mode-only" />
+<img src="https://github.com/javierdejesusda/javierdejesusda/blob/main/generated/languages.svg#gh-light-mode-only" />
 </a>
 
 <a href="https://www.linkedin.com/in/javierdejesusda">
