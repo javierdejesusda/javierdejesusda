@@ -20,6 +20,19 @@ class FakeQueries:
 
 
 def build_stats(payload):
+    """Builds a Stats instance with its queries replaced by a stub.
+
+    Must be called from inside a running event loop: on Python 3.8 the
+    Semaphore built by Queries binds to the current loop at construction
+    time and raises when no loop is running.
+
+    Args:
+        payload: Canned GraphQL response returned by every query.
+
+    Returns:
+        A Stats instance wired to FakeQueries.
+    """
+    asyncio.get_event_loop()
     stats = Stats("javierdejesusda", "fake-token", None)
     stats.queries = FakeQueries(payload)
     return stats
@@ -70,16 +83,21 @@ HEALTHY = {
 }
 
 
-class TokenScopeDetectionTest(unittest.TestCase):
-    def test_raises_when_token_cannot_see_any_repository(self):
+class TokenScopeDetectionTest(unittest.IsolatedAsyncioTestCase):
+    async def test_builds_inside_a_running_loop(self):
+        """Guards the Python 3.8 loop-binding trap that broke this suite."""
+        self.assertIsNotNone(asyncio.get_running_loop())
+        self.assertIsNotNone(build_stats(HEALTHY))
+
+    async def test_raises_when_token_cannot_see_any_repository(self):
         stats = build_stats(NO_REPO_ACCESS)
         with self.assertRaises(RuntimeError) as ctx:
-            asyncio.run(stats.get_stats())
+            await stats.get_stats()
         self.assertIn("ACCESS_TOKEN", str(ctx.exception))
 
-    def test_succeeds_when_repositories_are_visible(self):
+    async def test_succeeds_when_repositories_are_visible(self):
         stats = build_stats(HEALTHY)
-        asyncio.run(stats.get_stats())
+        await stats.get_stats()
         self.assertEqual(stats._stargazers, 3)
         self.assertEqual(stats._forks, 1)
         self.assertEqual(stats._repos, {"javierdejesusda/portfolio-cv"})
