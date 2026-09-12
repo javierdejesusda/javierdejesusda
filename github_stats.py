@@ -315,6 +315,8 @@ Languages:
                 )
             )
             raw_results = raw_results if raw_results is not None else {}
+            for error in raw_results.get("errors", []):
+                print(f"GraphQL error: {error.get('message', error)}")
 
             self._name = raw_results.get("data", {}).get("viewer", {}).get("name", None)
             if self._name is None:
@@ -373,6 +375,17 @@ Languages:
                 )
             else:
                 break
+
+        if not self._repos:
+            raise RuntimeError(
+                "No repositories were returned for user "
+                f"{self.username}. The ACCESS_TOKEN secret authenticated but "
+                "cannot read any repository, so every repository-derived "
+                "statistic would be published as zero. Replace ACCESS_TOKEN "
+                "with a classic personal access token carrying the 'repo' "
+                "scope (a fine-grained token returns an empty repository list "
+                "unless repositories are explicitly granted)."
+            )
 
         # TODO: Improve languages to scale by number of contributions to
         #       specific filetypes
