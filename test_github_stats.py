@@ -1,8 +1,11 @@
 """Tests for token-scope failure detection in github_stats."""
 
 import asyncio
+import os
+import tempfile
 import unittest
 
+from generate_images import generate_overview
 from github_stats import Stats
 
 
@@ -101,6 +104,124 @@ class TokenScopeDetectionTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stats._stargazers, 3)
         self.assertEqual(stats._forks, 1)
         self.assertEqual(stats._repos, {"javierdejesusda/portfolio-cv"})
+
+    async def test_zero_language_bytes_does_not_raise_zero_division(self):
+        payload = {
+            "data": {
+                "viewer": {
+                    "login": "javierdejesusda",
+                    "name": "Javier De Jesus",
+                    "repositories": {
+                        "pageInfo": {"hasNextPage": False},
+                        "nodes": [
+                            {
+                                "nameWithOwner": "javierdejesusda/empty-repo",
+                                "stargazers": {"totalCount": 0},
+                                "forkCount": 0,
+                                "languages": {"edges": []},
+                            }
+                        ],
+                    },
+                    "repositoriesContributedTo": {
+                        "pageInfo": {"hasNextPage": False},
+                        "nodes": [],
+                    },
+                }
+            }
+        }
+        stats = build_stats(payload)
+        await stats.get_stats()
+        self.assertEqual(stats._languages, {})
+
+    async def test_excluded_all_languages_sets_zero_prop_without_error(self):
+        stats = Stats(
+            "javierdejesusda",
+            "fake-token",
+            None,
+            exclude_langs={"Python"},
+        )
+        stats.queries = FakeQueries(HEALTHY)
+        await stats.get_stats()
+        self.assertEqual(stats._languages, {})
+
+    async def test_null_data_in_graphql_raises_runtime_error_not_attribute_error(self):
+        stats = build_stats({"data": None, "errors": [{"message": "Bad credentials"}]})
+        with self.assertRaises(RuntimeError):
+            await stats.get_stats()
+
+    async def test_null_stargazers_handled_gracefully(self):
+        payload = {
+            "data": {
+                "viewer": {
+                    "login": "javierdejesusda",
+                    "name": "Javier De Jesus",
+                    "repositories": {
+                        "pageInfo": {"hasNextPage": False},
+                        "nodes": [
+                            {
+                                "nameWithOwner": "javierdejesusda/no-stars",
+                                "stargazers": None,
+                                "forkCount": 0,
+                                "languages": {"edges": []},
+                            }
+                        ],
+                    },
+                    "repositoriesContributedTo": {
+                        "pageInfo": {"hasNextPage": False},
+                        "nodes": [],
+                    },
+                }
+            }
+        }
+        stats = build_stats(payload)
+        await stats.get_stats()
+        self.assertEqual(stats._stargazers, 0)
+
+    async def test_lines_changed_and_views_handle_non_list_or_null_rest_responses(self):
+        stats = build_stats(HEALTHY)
+        # FakeQueries.query_rest returns {} (simulating 202 exhaustion or error dict)
+        self.assertEqual(await stats.lines_changed, (0, 0))
+        self.assertEqual(await stats.views, 0)
+
+        # Simulate {"views": None}
+        async def null_views(path, params=None):
+            return {"views": None}
+
+        stats._views = None
+        stats.queries.query_rest = null_views
+        self.assertEqual(await stats.views, 0)
+
+    async def test_generate_overview_handles_backslashes_in_name(self):
+        payload = {
+            "data": {
+                "viewer": {
+                    "login": "javierdejesusda",
+                    "name": r"Javier \1 De Jesus",
+                    "repositories": HEALTHY["data"]["viewer"]["repositories"],
+                    "repositoriesContributedTo": {
+                        "pageInfo": {"hasNextPage": False},
+                        "nodes": [],
+                    },
+                }
+            }
+        }
+        stats = build_stats(payload)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            orig_cwd = os.getcwd()
+            os.chdir(tmpdir)
+            try:
+                os.makedirs("templates", exist_ok=True)
+                with open("templates/overview.svg", "w", encoding="utf-8") as f:
+                    f.write("<svg>{{ name }} {{ stars }} {{ forks }} {{ contributions }} {{ lines_changed }} {{ views }} {{ repos }}</svg>")
+                stats._total_contributions = 5
+                stats._lines_changed = (10, 2)
+                stats._views = 3
+                await generate_overview(stats)
+                with open("generated/overview.svg", "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.assertIn(r"Javier \1 De Jesus", content)
+            finally:
+                os.chdir(orig_cwd)
 
 
 if __name__ == "__main__":

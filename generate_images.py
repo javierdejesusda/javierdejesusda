@@ -2,7 +2,6 @@
 
 import asyncio
 import os
-import re
 
 import aiohttp
 
@@ -32,20 +31,20 @@ async def generate_overview(s: Stats) -> None:
     Generate an SVG badge with summary statistics
     :param s: Represents user's GitHub statistics
     """
-    with open("templates/overview.svg", "r") as f:
+    with open("templates/overview.svg", "r", encoding="utf-8") as f:
         output = f.read()
 
-    output = re.sub("{{ name }}", await s.name, output)
-    output = re.sub("{{ stars }}", f"{await s.stargazers:,}", output)
-    output = re.sub("{{ forks }}", f"{await s.forks:,}", output)
-    output = re.sub("{{ contributions }}", f"{await s.total_contributions:,}", output)
+    output = output.replace("{{ name }}", await s.name)
+    output = output.replace("{{ stars }}", f"{await s.stargazers:,}")
+    output = output.replace("{{ forks }}", f"{await s.forks:,}")
+    output = output.replace("{{ contributions }}", f"{await s.total_contributions:,}")
     changed = (await s.lines_changed)[0] + (await s.lines_changed)[1]
-    output = re.sub("{{ lines_changed }}", f"{changed:,}", output)
-    output = re.sub("{{ views }}", f"{await s.views:,}", output)
-    output = re.sub("{{ repos }}", f"{len(await s.repos):,}", output)
+    output = output.replace("{{ lines_changed }}", f"{changed:,}")
+    output = output.replace("{{ views }}", f"{await s.views:,}")
+    output = output.replace("{{ repos }}", f"{len(await s.repos):,}")
 
     generate_output_folder()
-    with open("generated/overview.svg", "w") as f:
+    with open("generated/overview.svg", "w", encoding="utf-8") as f:
         f.write(output)
 
 
@@ -54,7 +53,7 @@ async def generate_languages(s: Stats) -> None:
     Generate an SVG badge with summary languages used
     :param s: Represents user's GitHub statistics
     """
-    with open("templates/languages.svg", "r") as f:
+    with open("templates/languages.svg", "r", encoding="utf-8") as f:
         output = f.read()
 
     progress = ""
@@ -82,11 +81,11 @@ fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8z"></path></svg>
 
 """
 
-    output = re.sub(r"{{ progress }}", progress, output)
-    output = re.sub(r"{{ lang_list }}", lang_list, output)
+    output = output.replace("{{ progress }}", progress)
+    output = output.replace("{{ lang_list }}", lang_list)
 
     generate_output_folder()
-    with open("generated/languages.svg", "w") as f:
+    with open("generated/languages.svg", "w", encoding="utf-8") as f:
         f.write(output)
 
 

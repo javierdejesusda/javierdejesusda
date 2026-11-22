@@ -47,11 +47,12 @@ class Queries(object):
                     "https://api.github.com/graphql",
                     headers=headers,
                     json={"query": generated_query},
+                    timeout=aiohttp.ClientTimeout(total=30),
                 )
             result = await r_async.json()
             if result is not None:
                 return result
-        except:
+        except Exception:
             print("aiohttp failed for GraphQL query")
             # Fall back on non-async requests
             async with self.semaphore:
@@ -59,6 +60,7 @@ class Queries(object):
                     "https://api.github.com/graphql",
                     headers=headers,
                     json={"query": generated_query},
+                    timeout=30,
                 )
                 result = r_requests.json()
                 if result is not None:
@@ -87,17 +89,18 @@ class Queries(object):
                         f"https://api.github.com/{path}",
                         headers=headers,
                         params=tuple(params.items()),
+                        timeout=aiohttp.ClientTimeout(total=30),
                     )
                 if r_async.status == 202:
                     # print(f"{path} returned 202. Retrying...")
-                    print(f"A path returned 202. Retrying...")
+                    print("A path returned 202. Retrying...")
                     await asyncio.sleep(2)
                     continue
 
                 result = await r_async.json()
                 if result is not None:
                     return result
-            except:
+            except Exception:
                 print("aiohttp failed for rest query")
                 # Fall back on non-async requests
                 async with self.semaphore:
@@ -105,9 +108,10 @@ class Queries(object):
                         f"https://api.github.com/{path}",
                         headers=headers,
                         params=tuple(params.items()),
+                        timeout=30,
                     )
                     if r_requests.status_code == 202:
-                        print(f"A path returned 202. Retrying...")
+                        print("A path returned 202. Retrying...")
                         await asyncio.sleep(2)
                         continue
                     elif r_requests.status_code == 200:
@@ -318,26 +322,17 @@ Languages:
             for error in raw_results.get("errors", []):
                 print(f"GraphQL error: {error.get('message', error)}")
 
-            self._name = raw_results.get("data", {}).get("viewer", {}).get("name", None)
+            viewer = (raw_results.get("data") or {}).get("viewer") or {}
+            self._name = viewer.get("name", None)
             if self._name is None:
-                self._name = (
-                    raw_results.get("data", {})
-                    .get("viewer", {})
-                    .get("login", "No Name")
-                )
+                self._name = viewer.get("login", "No Name")
 
-            contrib_repos = (
-                raw_results.get("data", {})
-                .get("viewer", {})
-                .get("repositoriesContributedTo", {})
-            )
-            owned_repos = (
-                raw_results.get("data", {}).get("viewer", {}).get("repositories", {})
-            )
+            contrib_repos = viewer.get("repositoriesContributedTo") or {}
+            owned_repos = viewer.get("repositories") or {}
 
-            repos = owned_repos.get("nodes", [])
+            repos = owned_repos.get("nodes") or []
             if not self._ignore_forked_repos:
-                repos += contrib_repos.get("nodes", [])
+                repos += contrib_repos.get("nodes") or []
 
             for repo in repos:
                 if repo is None:
@@ -346,11 +341,11 @@ Languages:
                 if name in self._repos or name in self._exclude_repos:
                     continue
                 self._repos.add(name)
-                self._stargazers += repo.get("stargazers").get("totalCount", 0)
+                self._stargazers += (repo.get("stargazers") or {}).get("totalCount", 0)
                 self._forks += repo.get("forkCount", 0)
 
-                for lang in repo.get("languages", {}).get("edges", []):
-                    name = lang.get("node", {}).get("name", "Other")
+                for lang in (repo.get("languages") or {}).get("edges") or []:
+                    name = (lang.get("node") or {}).get("name", "Other")
                     languages = await self.languages
                     if name.lower() in exclude_langs_lower:
                         continue
@@ -361,18 +356,16 @@ Languages:
                         languages[name] = {
                             "size": lang.get("size", 0),
                             "occurrences": 1,
-                            "color": lang.get("node", {}).get("color"),
+                            "color": (lang.get("node") or {}).get("color"),
                         }
 
-            if owned_repos.get("pageInfo", {}).get(
+            owned_page_info = owned_repos.get("pageInfo") or {}
+            contrib_page_info = contrib_repos.get("pageInfo") or {}
+            if owned_page_info.get("hasNextPage", False) or contrib_page_info.get(
                 "hasNextPage", False
-            ) or contrib_repos.get("pageInfo", {}).get("hasNextPage", False):
-                next_owned = owned_repos.get("pageInfo", {}).get(
-                    "endCursor", next_owned
-                )
-                next_contrib = contrib_repos.get("pageInfo", {}).get(
-                    "endCursor", next_contrib
-                )
+            ):
+                next_owned = owned_page_info.get("endCursor", next_owned)
+                next_contrib = contrib_page_info.get("endCursor", next_contrib)
             else:
                 break
 
@@ -389,9 +382,9 @@ Languages:
 
         # TODO: Improve languages to scale by number of contributions to
         #       specific filetypes
-        langs_total = sum([v.get("size", 0) for v in self._languages.values()])
+        langs_total = sum(v.get("size", 0) for v in self._languages.values())
         for k, v in self._languages.items():
-            v["prop"] = 100 * (v.get("size", 0) / langs_total)
+            v["prop"] = 100 * (v.get("size", 0) / langs_total) if langs_total > 0 else 0.0
 
     @property
     async def name(self) -> str:
@@ -468,23 +461,22 @@ Languages:
             return self._total_contributions
 
         self._total_contributions = 0
-        years = (
-            (await self.queries.query(Queries.contrib_years()))
-            .get("data", {})
-            .get("viewer", {})
-            .get("contributionsCollection", {})
-            .get("contributionYears", [])
-        )
+        years_viewer = (
+            (await self.queries.query(Queries.contrib_years())).get("data") or {}
+        ).get("viewer") or {}
+        years = (years_viewer.get("contributionsCollection") or {}).get(
+            "contributionYears"
+        ) or []
         by_year = (
-            (await self.queries.query(Queries.all_contribs(years)))
-            .get("data", {})
-            .get("viewer", {})
-            .values()
-        )
+            ((await self.queries.query(Queries.all_contribs(years))).get("data") or {})
+            .get("viewer")
+            or {}
+        ).values()
         for year in by_year:
-            self._total_contributions += year.get("contributionCalendar", {}).get(
-                "totalContributions", 0
-            )
+            if isinstance(year, dict):
+                self._total_contributions += (
+                    year.get("contributionCalendar") or {}
+                ).get("totalContributions", 0)
         return cast(int, self._total_contributions)
 
     @property
@@ -498,6 +490,8 @@ Languages:
         deletions = 0
         for repo in await self.repos:
             r = await self.queries.query_rest(f"/repos/{repo}/stats/contributors")
+            if not isinstance(r, list):
+                continue
             for author_obj in r:
                 # Handle malformed response from the API by skipping this repo
                 if not isinstance(author_obj, dict) or not isinstance(
@@ -527,7 +521,9 @@ Languages:
         total = 0
         for repo in await self.repos:
             r = await self.queries.query_rest(f"/repos/{repo}/traffic/views")
-            for view in r.get("views", []):
+            if not isinstance(r, dict):
+                continue
+            for view in r.get("views") or []:
                 total += view.get("count", 0)
 
         self._views = total
